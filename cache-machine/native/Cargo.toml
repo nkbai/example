@@ -1,0 +1,18 @@
+[package]
+name = "cache-machine"
+version = "0.1.0"
+authors = ["高铨康 <hzgaoquankang@corp.netease.com>"]
+license = "MIT"
+build = "build.rs"
+exclude = ["artifacts.json", "index.node"]
+
+[lib]
+name = "cache_machine"
+crate-type = ["cdylib"]
+
+[build-dependencies]
+neon-build = "0.3.1"
+
+[dependencies]
+neon = "0.3.1"
+lazy_static = "1.4.0"

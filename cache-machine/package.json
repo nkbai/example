@@ -1,0 +1,14 @@
+{
+  "name": "cache-machine",
+  "version": "0.1.0",
+  "description": "为node进行缓存数据",
+  "main": "lib/index.js",
+  "author": "高铨康 <hzgaoquankang@corp.netease.com>",
+  "license": "MIT",
+  "dependencies": {
+    "neon-cli": "^0.3.1"
+  },
+  "scripts": {
+    "install": "neon build"
+  }
+}
