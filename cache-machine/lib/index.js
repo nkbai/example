@@ -7,4 +7,10 @@ if (result) {
     addon.opeator(1,last + result + new Date().getTime().toString()) //set 
 } else {
     addon.opeator(0,new Date().getTime().toString());// set
+    console.log("===>");
 }
+
+setTimeout(()=>{
+    console.log(addon.opeator(1,""));
+},1000)
+
