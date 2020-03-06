@@ -3,7 +3,7 @@
 为node进行缓存数据
 npm -g neon
 
-neon build 编译
+neon build 编译为ffi
 
 node lib/index.js
 
