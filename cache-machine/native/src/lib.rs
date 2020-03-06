@@ -3,51 +3,73 @@ extern crate lazy_static;
 
 extern crate neon;
 
+extern crate shared_memory;
+
 use neon::prelude::*;
 use neon::register_module;
+use shared_memory::*;
 use std::collections::HashMap;
+use std::ffi::{CStr, CString};
 use std::sync::Mutex;
 
-lazy_static! {
-  static ref HASHMAP: Mutex<HashMap<String, String>> = Mutex::new(HashMap::new());
+#[derive(SharedMemCast)]
+struct ShmemStructCache {
+  num_slaves: u32,
+  message: [u8; 256],
 }
 
-fn hashmap_put(key: String, value: String) {
-  HASHMAP.lock().unwrap().insert(key, value);
-}
+static GLOBAL_LOCK_ID: usize = 0;
 
-fn hashmap_remove(key: String) {
-  HASHMAP.lock().unwrap().remove(&key);
-}
+fn create_open_mem(operator: f64, object: String) -> Result<String, SharedMemError> {
+  let shmem = match SharedMem::create_linked("shared_mem.link", LockType::Mutex, 4096) {
+    Ok(v) => v,
+    Err(SharedMemError::LinkExists) => SharedMem::open_linked("shared_mem.link")?,
+    Err(e) => return Err(e),
+  };
 
-fn hashmap_get(key: String) -> String {
-  match HASHMAP.lock().unwrap().get(&key) {
-    Some(value) => value.to_owned(),
-    None => "".to_owned(),
+  if shmem.num_locks() != 1 {
+    return Ok(String::from("Expected to only have 1 lock in shared mapping !"));
+  }
+
+  if operator == 0 as f64 {
+    set_cache(shmem, object)
+  } else {
+    get_cache(shmem)
   }
 }
 
-fn put(mut cx: FunctionContext) -> JsResult<JsUndefined> {
-  let key = cx.argument::<JsString>(0)?.value();
-  let value = cx.argument::<JsString>(1)?.value();
-  hashmap_put(key, value);
-  Ok(cx.undefined())
+fn set_cache(mut shmem: SharedMem, object: String) -> Result<String, SharedMemError> {
+  {
+    let mut shared_state = shmem.wlock::<ShmemStructCache>(GLOBAL_LOCK_ID)?;
+    let set_string: CString = CString::new(object.as_str()).unwrap();
+    shared_state.message[0..set_string.to_bytes_with_nul().len()]
+      .copy_from_slice(set_string.to_bytes_with_nul());
+  }
+  Ok("".to_owned())
 }
 
-fn remove(mut cx: FunctionContext) -> JsResult<JsUndefined> {
-  let key = cx.argument::<JsString>(0)?.value();
-  hashmap_remove(key);
-  Ok(cx.undefined())
+fn get_cache(mut shmem: SharedMem) -> Result<String, SharedMemError> {
+  let mut result = "";
+  {
+    let shared_state = shmem.rlock::<ShmemStructCache>(GLOBAL_LOCK_ID)?;
+    let shmem_str: &CStr = unsafe { CStr::from_ptr(shared_state.message.as_ptr() as *mut i8) };
+    result = shmem_str.to_str().unwrap();
+  }
+
+  Ok(result.to_owned())
 }
 
-fn get(mut cx: FunctionContext) -> JsResult<JsString> {
-  let key = cx.argument::<JsString>(0)?.value();
-  Ok(cx.string(hashmap_get(key)))
+
+fn cache_opeator(mut cx: FunctionContext) -> JsResult<JsString> {
+  let operator = cx.argument::<JsNumber>(0)?.value();
+  let set_value = cx.argument::<JsString>(1)?.value();
+  match create_open_mem(operator, set_value) {
+    Ok(v) => Ok(cx.string(v)),
+    Err(e) => Ok(cx.string("error")),
+  }
 }
 
 register_module!(mut m, {
-  m.export_function("put", put)?;
-  m.export_function("remove", remove)?;
-  m.export_function("get", get)?;
+  m.export_function("opeator", cache_opeator)?;
   Ok(())
 });
